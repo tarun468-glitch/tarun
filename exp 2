@@ -1,1 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Responsive Banking UI</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .banking-container {
+      background: #ffffff;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      max-width: 350px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .balance-card {
+      background: #e0f7fa;
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #006064;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      padding: 0.8rem 1.5rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .btn-deposit {
+      background-color: #4caf50;
+      color: white;
+    }
+
+    .btn-deposit:hover {
+      background-color: #45a049;
+    }
+
+    .btn-withdraw {
+      background-color: #f44336;
+      color: white;
+    }
+
+    .btn-withdraw:hover {
+      background-color: #e53935;
+    }
+
+    /* Responsive tweaks */
+    @media (max-width: 480px) {
+      .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="banking-container">
+    <div class="balance-card">
+      Balance: $5,000
+    </div>
+    <div class="button-group">
+      <button class="btn btn-deposit">Deposit</button>
+      <button class="btn btn-withdraw">Withdraw</button>
+    </div>
+  </div>
+</body>
+</html>
 
