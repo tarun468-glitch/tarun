@@ -1,3 +1,9 @@
+const textarea = document.getElementById('text-input');
+const charCount = document.getElementById('char-count');
+
+textarea.addEventListener('input', () => {
+  charCount.textContent = `Characters: ${textarea.value.length}`;
+});
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -49,13 +55,7 @@
     <div class="char-counter" id="char-count">Characters: 0</div>
   </div>
 
-  <script>
-    const textarea = document.getElementById('text-input');
-    const charCount = document.getElementById('char-count');
-
-    textarea.addEventListener('input', () => {
-      charCount.textContent = `Characters: ${textarea.value.length}`;
-    });
-  </script>
+  <!-- Link to external JavaScript -->
+  <script src="script.js"></script>
 </body>
 </html>
