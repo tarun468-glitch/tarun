@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Character Counter</title>
+</head>
+<body>
+  <h2>Live Character Counter</h2>
+  
+  <textarea id="textArea" placeholder="Type something here..."></textarea>
+  <p id="counter">Character count: 0</p>
+
+  <script>
+    // Get references to elements
+    const textarea = document.getElementById("textArea");
+    const counter = document.getElementById("counter");
+
+    // Function to update character count
+    function updateCount() {
+      let count = textarea.value.length;
+      counter.textContent = "Character count: " + count;
+    }
+
+    // Listen to typing in textarea
+    textarea.addEventListener("input", updateCount);
+  </script>
+</body>
+</html>
