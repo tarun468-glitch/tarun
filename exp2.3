@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SVG Drawing Tool — Rectangle • Line • Ellipse • Freehand</title>
+  <style>
+    :root {
+      --bg: #0f172a;          /* slate-900 */
+      --panel: #111827;       /* gray-900 */
+      --muted: #94a3b8;       /* slate-400 */
+      --text: #e5e7eb;        /* gray-200 */
+      --accent: #22c55e;      /* green-500 */
+      --border: #334155;      /* slate-700 */
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: linear-gradient(120deg, #0f172a, #0b1220);
+      font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, sans-serif;
+      color: var(--text);
+      height: 100dvh; display: grid; grid-template-rows: auto 1fr; gap: 10px;
+    }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; background: rgba(17,24,39,.75); backdrop-filter: blur(6px);
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 { font-size: 16px; margin: 0; font-weight: 600; letter-spacing: .2px; }
+    .toolbar {
+      display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+    }
+    .group { display: flex; gap: 6px; align-items: center; padding: 6px 8px; border: 1px solid var(--border); border-radius: 12px; background: #0c1324; }
+    label { color: var(--muted); font-size: 12px; }
+    select, input[type="number"], input[type="color"] {
+      background: #0b1220; color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+      height: 32px; padding: 0 8px; outline: none;
+    }
+    button {
+      background: #111827; border: 1px solid var(--border); color: var(--text);
+      padding: 8px 12px; border-radius: 10px; cursor: pointer; transition: transform .04s ease;
+    }
+    button:hover { border-color: var(--accent); }
+    button:active { transform: translateY(1px); }
+
+    .canvas-wrap {
+      margin: 0 12px 12px; border: 1px dashed var(--border); border-radius: 16px; overflow: hidden;
+      background: #0b1220;
+      position: relative;
+    }
+    svg { width: 100%; height: calc(100dvh - 110px); display:block; background: radial-gradient(1200px 600px at 20% 10%, #0f1a33, transparent), #0b1220; }
+    .hint { position: absolute; left: 12px; bottom: 10px; color: var(--muted); font-size: 12px; user-select: none; }
+
+    /* Selection outline while drawing */
+    .guide { pointer-events: none; stroke: #22c55e; stroke-dasharray: 4 3; fill: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Interactive SVG Drawing Tool</h1>
+    <div class="toolbar">
+      <div class="group">
+        <label for="tool">Tool</label>
+        <select id="tool">
+          <option value="rect">Rectangle</option>
+          <option value="line">Line</option>
+          <option value="ellipse">Ellipse</option>
+          <option value="freehand">Freehand</option>
+        </select>
+      </div>
+      <div class="group">
+        <label for="stroke">Stroke</label>
+        <input id="stroke" type="color" value="#22c55e" />
+        <label for="width">Width</label>
+        <input id="width" type="number" min="1" max="20" step="1" value="3" style="width:70px" />
+      </div>
+      <div class="group">
+        <label for="fill">Fill</label>
+        <input id="fill" type="color" value="#00000000" />
+        <label><input id="fillToggle" type="checkbox" /> enable</label>
+      </div>
+      <div class="group">
+        <button id="undo" title="Undo last shape (Ctrl+Z)">Undo</button>
+        <button id="clear" title="Clear all (Esc)">Clear</button>
+        <button id="download" title="Download SVG">Download</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="canvas-wrap">
+    <svg id="stage" viewBox="0 0 1200 700" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" class="guide" stroke="#1f2937" />
+        </pattern>
+      </defs>
+      <rect x="0" y="0" width="100%" height="100%" fill="url(#grid)" />
+      <!-- All drawn shapes go in this group -->
+      <g id="content"></g>
+      <!-- Temporary visual guides while dragging -->
+      <g id="guides"></g>
+    </svg>
+    <div class="hint">Tip: Hold <b>Shift</b> for perfect squares/circles and 45°-snapped lines. Draw multiple shapes by repeating click & drag.</div>
+  </div>
+
+  <script>
+    const stage = document.getElementById('stage');
+    const content = document.getElementById('content');
+    const guides = document.getElementById('guides');
+
+    const toolSel = document.getElementById('tool');
+    const strokeInput = document.getElementById('stroke');
+    const widthInput = document.getElementById('width');
+    const fillInput = document.getElementById('fill');
+    const fillToggle = document.getElementById('fillToggle');
+    const undoBtn = document.getElementById('undo');
+    const clearBtn = document.getElementById('clear');
+    const downloadBtn = document.getElementById('download');
+
+    let drawing = false;
+    let start = { x: 0, y: 0 };
+    let activeEl = null; // the element being drawn
+    let guideEl = null;  // the dashed guide while dragging
+
+    // Convert mouse/pointer coords to SVG coords (accounting for viewBox & scaling)
+    function svgPoint(evt) {
+      const pt = stage.createSVGPoint();
+      pt.x = evt.clientX; pt.y = evt.clientY;
+      return pt.matrixTransform(stage.getScreenCTM().inverse());
+    }
+
+    function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+
+    function begin(evt) {
+      const p = svgPoint(evt);
+      start = { x: p.x, y: p.y };
+      drawing = true;
+
+      const stroke = strokeInput.value;
+      const w = Number(widthInput.value) || 1;
+      const doFill = fillToggle.checked;
+      const fill = doFill ? fillInput.value : 'none';
+
+      const tool = toolSel.value;
+      if (tool === 'rect') {
+        activeEl = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        activeEl.setAttribute('x', start.x);
+        activeEl.setAttribute('y', start.y);
+        activeEl.setAttribute('width', 0);
+        activeEl.setAttribute('height', 0);
+      } else if (tool === 'line') {
+        activeEl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        activeEl.setAttribute('x1', start.x);
+        activeEl.setAttribute('y1', start.y);
+        activeEl.setAttribute('x2', start.x);
+        activeEl.setAttribute('y2', start.y);
+      } else if (tool === 'ellipse') {
+        activeEl = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+        activeEl.setAttribute('cx', start.x);
+        activeEl.setAttribute('cy', start.y);
+        activeEl.setAttribute('rx', 0);
+        activeEl.setAttribute('ry', 0);
+      } else if (tool === 'freehand') {
+        activeEl = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        activeEl.setAttribute('points', `${start.x},${start.y}`);
+        activeEl.setAttribute('fill', 'none'); // freehand is stroke-only
+      }
+
+      // common style
+      activeEl.setAttribute('stroke', stroke);
+      activeEl.setAttribute('stroke-width', w);
+      activeEl.setAttribute('stroke-linecap', 'round');
+      activeEl.setAttribute('stroke-linejoin', 'round');
+      if (tool !== 'freehand') activeEl.setAttribute('fill', fill);
+
+      // guide rectangle for visual feedback when drawing boxy shapes
+      if (tool === 'rect' || tool === 'ellipse') {
+        guideEl = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        guideEl.setAttribute('class', 'guide');
+        guideEl.setAttribute('x', start.x);
+        guideEl.setAttribute('y', start.y);
+        guideEl.setAttribute('width', 0);
+        guideEl.setAttribute('height', 0);
+        guides.appendChild(guideEl);
+      } else if (tool === 'line') {
+        guideEl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        guideEl.setAttribute('class', 'guide');
+        guideEl.setAttribute('x1', start.x);
+        guideEl.setAttribute('y1', start.y);
+        guideEl.setAttribute('x2', start.x);
+        guideEl.setAttribute('y2', start.y);
+        guides.appendChild(guideEl);
+      }
+
+      content.appendChild(activeEl);
+    }
+
+    function update(evt) {
+      if (!drawing || !activeEl) return;
+      const p = svgPoint(evt);
+      const dx = p.x - start.x;
+      const dy = p.y - start.y;
+      const tool = toolSel.value;
+
+      if (tool === 'rect') {
+        let w = dx, h = dy;
+        if (evt.shiftKey) { // keep square
+          const s = Math.max(Math.abs(w), Math.abs(h));
+          w = Math.sign(w) * s; h = Math.sign(h) * s;
+        }
+        const x = w < 0 ? start.x + w : start.x;
+        const y = h < 0 ? start.y + h : start.y;
+        activeEl.setAttribute('x', x);
+        activeEl.setAttribute('y', y);
+        activeEl.setAttribute('width', Math.abs(w));
+        activeEl.setAttribute('height', Math.abs(h));
+        if (guideEl) {
+          guideEl.setAttribute('x', x);
+          guideEl.setAttribute('y', y);
+          guideEl.setAttribute('width', Math.abs(w));
+          guideEl.setAttribute('height', Math.abs(h));
+        }
+      } else if (tool === 'line') {
+        let x2 = p.x, y2 = p.y;
+        if (evt.shiftKey) { // snap to 45° increments
+          const angle = Math.atan2(dy, dx);
+          const snapped = Math.round(angle / (Math.PI/4)) * (Math.PI/4);
+          const len = Math.hypot(dx, dy);
+          x2 = start.x + Math.cos(snapped) * len;
+          y2 = start.y + Math.sin(snapped) * len;
+        }
+        activeEl.setAttribute('x2', x2);
+        activeEl.setAttribute('y2', y2);
+        if (guideEl) {
+          guideEl.setAttribute('x2', x2);
+          guideEl.setAttribute('y2', y2);
+        }
+      } else if (tool === 'ellipse') {
+        let rx = Math.abs(dx) / 2;
+        let ry = Math.abs(dy) / 2;
+        if (evt.shiftKey) { const r = Math.max(rx, ry); rx = r; ry = r; }
+        const cx = start.x + Math.sign(dx) * rx;
+        const cy = start.y + Math.sign(dy) * ry;
+        activeEl.setAttribute('cx', cx);
+        activeEl.setAttribute('cy', cy);
+        activeEl.setAttribute('rx', rx);
+        activeEl.setAttribute('ry', ry);
+        if (guideEl) {
+          const x = Math.min(start.x, cx - rx);
+          const y = Math.min(start.y, cy - ry);
+          const w = rx * 2, h = ry * 2;
+          guideEl.setAttribute('x', x);
+          guideEl.setAttribute('y', y);
+          guideEl.setAttribute('width', w);
+          guideEl.setAttribute('height', h);
+        }
+      } else if (tool === 'freehand') {
+        const pts = activeEl.getAttribute('points');
+        // throttle a bit so every ~3px movement adds a point
+        const last = pts.split(' ').pop().split(',').map(Number);
+        if (Math.hypot(p.x - last[0], p.y - last[1]) > 3) {
+          activeEl.setAttribute('points', `${pts} ${p.x},${p.y}`);
+        }
+      }
+    }
+
+    function end() {
+      if (!drawing) return;
+      drawing = false;
+      activeEl = null;
+      if (guideEl && guideEl.parentNode) guides.removeChild(guideEl);
+      guideEl = null;
+    }
+
+    // Pointer events unify mouse/touch/pen
+    stage.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return; // left button only
+      stage.setPointerCapture(e.pointerId);
+      begin(e);
+    });
+    stage.addEventListener('pointermove', update);
+    stage.addEventListener('pointerup', (e) => { stage.releasePointerCapture(e.pointerId); end(); });
+    stage.addEventListener('pointerleave', end);
+
+    // Undo / Clear / Download
+    undoBtn.addEventListener('click', () => {
+      const last = content.lastElementChild;
+      if (last) content.removeChild(last);
+    });
+    clearBtn.addEventListener('click', () => { content.innerHTML = ''; });
+    downloadBtn.addEventListener('click', () => {
+      const serializer = new XMLSerializer();
+      const clone = stage.cloneNode(true);
+      // remove guides from export
+      const gs = clone.querySelector('#guides');
+      if (gs) gs.remove();
+      const str = serializer.serializeToString(clone);
+      const blob = new Blob([str], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'drawing.svg'; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 500);
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { content.innerHTML = ''; }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault(); const last = content.lastElementChild; if (last) content.removeChild(last);
+      }
+    });
+
+    // Accessibility: constrain stroke width input
+    widthInput.addEventListener('change', () => {
+      const v = Number(widthInput.value);
+      widthInput.value = clamp(isNaN(v) ? 1 : v, 1, 40);
+    });
+
+    // If fill is disabled, dim the picker
+    function syncFillUI(){ fillInput.disabled = !fillToggle.checked; fillInput.style.opacity = fillToggle.checked ? 1 : 0.5; }
+    fillToggle.addEventListener('change', syncFillUI); syncFillUI();
+  </script>
+</body>
+</html>
