@@ -1,0 +1,115 @@
+// Import the 'express' module to create the server and handle routes.
+const express = require('express');
+
+// Create the Express application instance.
+const app = express();
+
+// Set the port for the server to listen on.
+const PORT = 3000;
+
+// Enable JSON body parsing for incoming requests. This is essential for POST requests.
+app.use(express.json());
+
+// --- In-Memory Data Store for Cards ---
+
+// An array to hold the card objects. This acts as our temporary database.
+let cards = [
+  { id: 1, suit: 'Hearts', value: 'Ace' },
+  { id: 2, suit: 'Spades', value: 'King' },
+  { id: 3, suit: 'Clubs', value: 'Queen' },
+  { id: 4, suit: 'Diamonds', value: 'Jack' },
+];
+
+// A simple counter to generate unique IDs for new cards.
+let nextId = cards.length + 1;
+
+// --- API Endpoints (Routes) ---
+
+/**
+ * GET /cards
+ * Route to retrieve a list of all playing cards.
+ * Responds with a JSON array of all cards.
+ */
+app.get('/cards', (req, res) => {
+  res.status(200).json(cards);
+});
+
+/**
+ * GET /cards/:id
+ * Route to retrieve a single card by its ID.
+ * The ID is passed as a URL parameter.
+ * Responds with a single card object or a 404 error if not found.
+ */
+app.get('/cards/:id', (req, res) => {
+  // Find the card in the array that matches the requested ID.
+  // The 'id' from req.params is a string, so we use parseInt to convert it to a number.
+  const cardId = parseInt(req.params.id, 10);
+  const card = cards.find(c => c.id === cardId);
+
+  if (card) {
+    res.status(200).json(card);
+  } else {
+    res.status(404).json({ message: 'Card not found.' });
+  }
+});
+
+/**
+ * POST /cards
+ * Route to add a new card to the collection.
+ * Expects a JSON object in the request body with 'suit' and 'value'.
+ * Responds with the newly created card and a 201 status code.
+ */
+app.post('/cards', (req, res) => {
+  // Destructure 'suit' and 'value' from the request body.
+  const { suit, value } = req.body;
+
+  // Validate that both suit and value are provided.
+  if (!suit || !value) {
+    return res.status(400).json({ message: 'Suit and value are required to add a new card.' });
+  }
+
+  // Create a new card object with a unique ID.
+  const newCard = {
+    id: nextId++,
+    suit,
+    value,
+  };
+
+  // Add the new card to our in-memory array.
+  cards.push(newCard);
+
+  // Respond with the created card and a 201 (Created) status code.
+  res.status(201).json(newCard);
+});
+
+/**
+ * DELETE /cards/:id
+ * Route to delete a card by its ID.
+ * The ID is passed as a URL parameter.
+ * Responds with a success message or a 404 error if not found.
+ */
+app.delete('/cards/:id', (req, res) => {
+  // Find the index of the card to be removed.
+  const cardId = parseInt(req.params.id, 10);
+  const cardIndex = cards.findIndex(c => c.id === cardId);
+
+  if (cardIndex !== -1) {
+    // Remove the card from the array using its index.
+    cards.splice(cardIndex, 1);
+    res.status(200).json({ message: 'Card successfully deleted.' });
+  } else {
+    res.status(404).json({ message: 'Card not found.' });
+  }
+});
+
+// --- Server Startup ---
+
+// Start the server and listen for incoming requests on the specified port.
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log('API Endpoints available:');
+  console.log('  GET /cards - List all cards');
+  console.log('  GET /cards/:id - Get a single card');
+  console.log('  POST /cards - Add a new card (send JSON body)');
+  console.log('  DELETE /cards/:id - Delete a card');
+});
