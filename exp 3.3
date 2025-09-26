@@ -1,0 +1,87 @@
+// Define the base class 'Person'
+class Person {
+  /**
+   * Constructs a new Person instance.
+   * @param {string} name - The name of the person.
+   * @param {number} age - The age of the person.
+   */
+  constructor(name, age) {
+    this.name = name;
+    this.age = age;
+  }
+
+  /**
+   * Displays the basic information of the person.
+   */
+  displayInfo() {
+    console.log(`Name: ${this.name}, Age: ${this.age}`);
+  }
+}
+
+// Define the subclass 'Student' that extends 'Person'
+class Student extends Person {
+  /**
+   * Constructs a new Student instance.
+   * @param {string} name - The name of the student.
+   * @param {number} age - The age of the student.
+   * @param {string} course - The course the student is enrolled in.
+   */
+  constructor(name, age, course) {
+    // Call the constructor of the parent class (Person)
+    super(name, age);
+    this.course = course;
+  }
+
+  /**
+   * Overrides the displayInfo method to include student-specific details.
+   */
+  displayInfo() {
+    // Call the parent's method to get basic info
+    super.displayInfo();
+    console.log(`Course: ${this.course}`);
+  }
+}
+
+// Define the subclass 'Teacher' that extends 'Person'
+class Teacher extends Person {
+  /**
+   * Constructs a new Teacher instance.
+   * @param {string} name - The name of the teacher.
+   * @param {number} age - The age of the teacher.
+   * @param {string} subject - The subject the teacher teaches.
+   */
+  constructor(name, age, subject) {
+    // Call the constructor of the parent class (Person)
+    super(name, age);
+    this.subject = subject;
+  }
+
+  /**
+   * Overrides the displayInfo method to include teacher-specific details.
+   */
+  displayInfo() {
+    // Call the parent's method to get basic info
+    super.displayInfo();
+    console.log(`Subject: ${this.subject}`);
+  }
+}
+
+// --- Demonstration ---
+
+console.log("--- Creating a Student instance ---");
+const student1 = new Student("Alice", 20, "Computer Science");
+student1.displayInfo(); // This will call the overridden method in Student
+
+console.log("\n--- Creating a Teacher instance ---");
+const teacher1 = new Teacher("Mr. Smith", 45, "Physics");
+teacher1.displayInfo(); // This will call the overridden method in Teacher
+
+console.log("\n--- Showing how inheritance works ---");
+console.log("Checking if student1 is an instance of both Student and Person:");
+console.log(`Is student1 an instance of Student? ${student1 instanceof Student}`); // true
+console.log(`Is student1 an instance of Person? ${student1 instanceof Person}`); // true
+
+console.log("\nChecking if a generic object is an instance of Person:");
+const person1 = new Person("Charlie", 30);
+console.log(`Is person1 an instance of Person? ${person1 instanceof Person}`); // true
+console.log(`Is person1 an instance of Student? ${person1 instanceof Student}`); // false
