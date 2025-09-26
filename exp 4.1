@@ -1,0 +1,122 @@
+// Import the 'readline' module for handling user input from the command line.
+const readline = require('readline');
+
+// Create the readline interface. This object handles the input and output streams.
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+// The in-memory array to store all employee data.
+let employees = [];
+
+// --- Core Employee Management Functions ---
+
+/**
+ * Adds a new employee to the list.
+ * @param {string} name - The name of the new employee.
+ * @param {string} id - The ID of the new employee.
+ */
+function addEmployee(name, id) {
+  // Check if an employee with the same ID already exists.
+  const employeeExists = employees.some(emp => emp.id === id);
+  if (employeeExists) {
+    console.log(`\nError: An employee with ID ${id} already exists. Please use a unique ID.`);
+  } else {
+    // Add the new employee object to the array.
+    employees.push({ id, name });
+    console.log(`\nSuccessfully added employee: ${name} (ID: ${id})`);
+  }
+}
+
+/**
+ * Lists all employees currently in the system.
+ */
+function listEmployees() {
+  console.log('\n--- Employee List ---');
+  if (employees.length === 0) {
+    console.log('No employees found.');
+  } else {
+    employees.forEach(emp => {
+      console.log(`ID: ${emp.id}, Name: ${emp.name}`);
+    });
+  }
+}
+
+/**
+ * Removes an employee by their ID.
+ * @param {string} id - The ID of the employee to remove.
+ */
+function removeEmployee(id) {
+  // Filter the employees array to create a new array without the employee to be removed.
+  const initialLength = employees.length;
+  employees = employees.filter(emp => emp.id !== id);
+
+  // Check if any employee was actually removed.
+  if (employees.length < initialLength) {
+    console.log(`\nSuccessfully removed employee with ID: ${id}`);
+  } else {
+    console.log(`\nError: No employee found with ID: ${id}`);
+  }
+}
+
+// --- User Interface and Input Handling ---
+
+/**
+ * Displays the menu of available commands to the user.
+ */
+function showMenu() {
+  console.log('\n--- Employee Management System CLI ---');
+  console.log('Available Commands:');
+  console.log('  add <name> <id>   - Add a new employee');
+  console.log('  list              - List all employees');
+  console.log('  remove <id>       - Remove an employee by ID');
+  console.log('  exit              - Exit the application');
+  console.log('--------------------------------------');
+  rl.prompt();
+}
+
+/**
+ * Main function to handle user input.
+ */
+rl.on('line', (input) => {
+  // Split the input line into an array of commands and arguments.
+  const args = input.trim().split(' ');
+  const command = args[0].toLowerCase();
+
+  switch (command) {
+    case 'add':
+      // The 'add' command requires a name and an ID.
+      if (args.length >= 3) {
+        // Rejoin the parts of the name in case it contains spaces.
+        const name = args.slice(1, args.length - 1).join(' ');
+        const id = args[args.length - 1];
+        addEmployee(name, id);
+      } else {
+        console.log('\nUsage: add <name> <id>');
+      }
+      break;
+    case 'list':
+      listEmployees();
+      break;
+    case 'remove':
+      // The 'remove' command requires an ID.
+      if (args.length === 2) {
+        removeEmployee(args[1]);
+      } else {
+        console.log('\nUsage: remove <id>');
+      }
+      break;
+    case 'exit':
+      console.log('\nExiting CLI. Goodbye!');
+      // Close the readline interface to terminate the program.
+      rl.close();
+      return; // Exit the function to prevent the prompt from showing again.
+    default:
+      console.log('\nInvalid command. Please try again.');
+  }
+  showMenu();
+});
+
+// Start the CLI application by showing the menu for the first time.
+showMenu();
