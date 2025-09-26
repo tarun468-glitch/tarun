@@ -1,0 +1,134 @@
+import React, { useState, useEffect } from 'react';
+
+// The main App component for the Library Management UI.
+// It manages the state for the book list, search term, and new book inputs.
+export default function App() {
+  // Initial list of books with unique IDs.
+  const [books, setBooks] = useState([
+    { id: 1, title: 'The Hobbit', author: 'J.R.R. Tolkien' },
+    { id: 2, title: 'The Lord of the Rings', author: 'J.R.R. Tolkien' },
+    { id: 3, title: 'Pride and Prejudice', author: 'Jane Austen' },
+    { id: 4, title: '1984', author: 'George Orwell' },
+    { id: 5, title: 'To Kill a Mockingbird', author: 'Harper Lee' },
+  ]);
+
+  // State for search input, and new book form inputs.
+  const [searchTerm, setSearchTerm] = useState('');
+  const [newTitle, setNewTitle] = useState('');
+  const [newAuthor, setNewAuthor] = useState('');
+
+  // Function to handle adding a new book.
+  const addBook = (e) => {
+    e.preventDefault(); // Prevent page reload on form submission
+
+    // Ensure both title and author are provided.
+    if (!newTitle || !newAuthor) {
+      // In a real app, you would show an error message to the user.
+      console.error('Title and author are required to add a new book.');
+      return;
+    }
+
+    // Create a new book object with a unique ID.
+    const newBook = {
+      id: Date.now(), // Unique ID using timestamp
+      title: newTitle,
+      author: newAuthor,
+    };
+
+    // Update the books state with the new book.
+    setBooks([...books, newBook]);
+
+    // Clear the form inputs.
+    setNewTitle('');
+    setNewAuthor('');
+  };
+
+  // Function to handle removing a book.
+  const removeBook = (bookId) => {
+    // Filter out the book with the matching ID.
+    const updatedBooks = books.filter((book) => book.id !== bookId);
+    setBooks(updatedBooks);
+  };
+
+  // Filter the books based on the search term.
+  const filteredBooks = books.filter((book) =>
+    book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    book.author.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center p-6 font-sans">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-8 border border-gray-200">
+        <h1 className="text-4xl font-extrabold text-gray-800 mb-6 text-center">
+          Library Management
+        </h1>
+
+        {/* Search Input Section */}
+        <div className="mb-6">
+          <input
+            type="text"
+            placeholder="Search books by title or author..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-lg"
+          />
+        </div>
+
+        {/* Book List Section */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-700 mb-4">Book List</h2>
+          <ul className="space-y-4">
+            {filteredBooks.length > 0 ? (
+              filteredBooks.map((book) => (
+                <li
+                  key={book.id}
+                  className="bg-gray-50 p-4 rounded-xl shadow-sm flex items-center justify-between transition-all hover:bg-gray-100"
+                >
+                  <div>
+                    <p className="text-lg font-semibold text-gray-800">{book.title}</p>
+                    <p className="text-sm text-gray-500">by {book.author}</p>
+                  </div>
+                  <button
+                    onClick={() => removeBook(book.id)}
+                    className="bg-red-500 text-white font-bold py-2 px-4 rounded-xl shadow-md hover:bg-red-600 transition-colors"
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))
+            ) : (
+              <p className="text-center text-gray-500 italic">No books found.</p>
+            )}
+          </ul>
+        </div>
+
+        {/* Add Book Form Section */}
+        <div className="border-t pt-6">
+          <h2 className="text-2xl font-bold text-gray-700 mb-4">Add a New Book</h2>
+          <form onSubmit={addBook} className="space-y-4">
+            <input
+              type="text"
+              placeholder="Book Title"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-lg"
+            />
+            <input
+              type="text"
+              placeholder="Author"
+              value={newAuthor}
+              onChange={(e) => setNewAuthor(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-lg"
+            />
+            <button
+              type="submit"
+              className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow-md hover:bg-blue-700 transition-colors"
+            >
+              Add Book
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
