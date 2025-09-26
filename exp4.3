@@ -1,0 +1,171 @@
+// Import the 'express' module to create the server and handle routes.
+const express = require('express');
+
+// Create the Express application instance.
+const app = express();
+
+// Set the port for the server to listen on.
+const PORT = 3000;
+
+// Enable JSON body parsing for incoming requests.
+app.use(express.json());
+
+// --- In-Memory Data Store and Constants ---
+
+// An array to simulate our seats. Each seat has an ID and a status.
+// A real-world application would use a database.
+const seats = [
+  { id: 'A1', status: 'available', lockedBy: null, lockedAt: null },
+  { id: 'A2', status: 'available', lockedBy: null, lockedAt: null },
+  { id: 'A3', status: 'available', lockedBy: null, lockedAt: null },
+  { id: 'B1', status: 'available', lockedBy: null, lockedAt: null },
+  { id: 'B2', status: 'available', lockedBy: null, lockedAt: null },
+];
+
+// The duration in milliseconds for which a seat lock is valid.
+const LOCK_DURATION_MS = 60000; // 1 minute
+
+// --- Utility Functions ---
+
+/**
+ * Finds a seat object by its ID.
+ * @param {string} seatId - The ID of the seat to find.
+ * @returns {object|undefined} The seat object if found, otherwise undefined.
+ */
+function findSeat(seatId) {
+  return seats.find(seat => seat.id === seatId);
+}
+
+/**
+ * Checks for and releases any expired seat locks.
+ * This function runs periodically to maintain a clean state.
+ */
+function releaseExpiredLocks() {
+  const now = Date.now();
+  seats.forEach(seat => {
+    // Check if the seat is locked and if the lock has expired.
+    if (seat.status === 'locked' && seat.lockedAt && now - seat.lockedAt > LOCK_DURATION_MS) {
+      console.log(`[SYSTEM] Lock expired for seat ${seat.id}. Releasing lock.`);
+      seat.status = 'available';
+      seat.lockedBy = null;
+      seat.lockedAt = null;
+    }
+  });
+}
+
+// Set up a recurring interval to check for expired locks.
+// This is a simple way to simulate a background process.
+setInterval(releaseExpiredLocks, 5000); // Check every 5 seconds
+
+// --- API Endpoints ---
+
+/**
+ * GET /seats
+ * Route to view the status of all seats.
+ * Responds with a JSON array of all seat objects.
+ */
+app.get('/seats', (req, res) => {
+  // Return the seats without the sensitive lockedBy/lockedAt data for the public view.
+  const publicSeats = seats.map(({ id, status }) => ({ id, status }));
+  res.status(200).json(publicSeats);
+});
+
+/**
+ * POST /seats/lock
+ * Route to temporarily lock a seat for a specific user.
+ * Prevents race conditions by checking and updating the seat status atomically.
+ */
+app.post('/seats/lock', (req, res) => {
+  const { seatId, userId } = req.body;
+
+  // Basic validation.
+  if (!seatId || !userId) {
+    return res.status(400).json({ message: 'Seat ID and User ID are required.' });
+  }
+
+  // Find the seat and ensure it exists.
+  const seat = findSeat(seatId);
+  if (!seat) {
+    return res.status(404).json({ message: 'Seat not found.' });
+  }
+
+  // Locking logic based on current seat status.
+  if (seat.status === 'available') {
+    // If available, lock the seat for the user.
+    seat.status = 'locked';
+    seat.lockedBy = userId;
+    seat.lockedAt = Date.now();
+    res.status(200).json({
+      message: `Seat ${seatId} successfully locked for you.`,
+      seat: { id: seat.id, status: seat.status, lockedAt: seat.lockedAt }
+    });
+  } else if (seat.status === 'locked') {
+    // If locked by another user, check for expiration.
+    const now = Date.now();
+    if (now - seat.lockedAt > LOCK_DURATION_MS) {
+      // The lock has expired, so we can re-assign it.
+      seat.status = 'locked';
+      seat.lockedBy = userId;
+      seat.lockedAt = now;
+      console.log(`[API] Re-locking expired seat ${seatId} for user ${userId}`);
+      res.status(200).json({
+        message: `Previous lock expired. Seat ${seatId} is now locked for you.`,
+        seat: { id: seat.id, status: seat.status, lockedAt: seat.lockedAt }
+      });
+    } else {
+      // The seat is currently locked by another user.
+      res.status(409).json({ message: `Seat ${seatId} is temporarily locked by another user. Please try again later.` });
+    }
+  } else if (seat.status === 'booked') {
+    // If the seat is already booked, it cannot be locked.
+    res.status(409).json({ message: `Seat ${seatId} is already booked.` });
+  }
+});
+
+/**
+ * POST /seats/book
+ * Route to confirm a booking for a previously locked seat.
+ */
+app.post('/seats/book', (req, res) => {
+  const { seatId, userId } = req.body;
+
+  // Basic validation.
+  if (!seatId || !userId) {
+    return res.status(400).json({ message: 'Seat ID and User ID are required.' });
+  }
+
+  // Find the seat and ensure it exists.
+  const seat = findSeat(seatId);
+  if (!seat) {
+    return res.status(404).json({ message: 'Seat not found.' });
+  }
+
+  // Booking logic.
+  if (seat.status === 'locked' && seat.lockedBy === userId) {
+    // The seat is locked by the correct user, proceed with booking.
+    seat.status = 'booked';
+    seat.lockedBy = null; // Clear lock information after booking.
+    seat.lockedAt = null;
+    res.status(200).json({ message: `Booking for seat ${seatId} confirmed. Enjoy your event!` });
+  } else if (seat.status === 'booked') {
+    // The seat is already booked, no action needed.
+    res.status(409).json({ message: `Seat ${seatId} is already booked.` });
+  } else {
+    // The seat is not locked by this user or is available.
+    res.status(409).json({ message: `Seat ${seatId} is not currently locked by you. Please lock the seat first.` });
+  }
+});
+
+// --- Server Startup ---
+
+// Start the server and listen for incoming requests on the specified port.
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log('\n--- API Endpoints available ---');
+  console.log('GET /seats              - View all seat statuses');
+  console.log('POST /seats/lock        - Lock a seat (requires JSON body: { "seatId": "...", "userId": "..." })');
+  console.log('POST /seats/book        - Confirm a booking (requires JSON body: { "seatId": "...", "userId": "..." })');
+  console.log('-------------------------------');
+});
+
+
